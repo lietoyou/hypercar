@@ -154,8 +154,16 @@ class RemoteProfilesTest {
         val config = listOf(File("../profiles/headunits.json"), File("profiles/headunits.json"))
             .first { it.isFile }.readText()
         assertEquals(RemoteProfiles.SCHEMA, JSONObject(config).getInt("_schema"))
-        val remote = RemoteProfiles.parse(config).associateBy { it.id }
-        assertEquals(HeadUnitProfiles.builtin.map { it.id }.toSet(), remote.keys)
+        val entries = RemoteProfiles.parse(config)
+        val remote = entries.associateBy { it.id }
+        assertEquals("duplicate IDs in published catalog", entries.size, remote.size)
+        val before = HeadUnitProfiles.builtin
+        assertFalse(before.any { it.id == "buick_e2lb" })
+        val buick = RemoteProfiles.merge(before, entries, RemoteProfiles.SCHEMA).single { it.id == "buick_e2lb" }
+        assertEquals(remote.getValue("buick_e2lb"), buick)
+        assertTrue(buick.allowOutboundIap2)
+        assertFalse(buick.dropProfilesBeforeIap2)
+        assertFalse(buick.verified)
         for (builtin in HeadUnitProfiles.builtin) {
             // Display copy may differ, transport and lifecycle policies must not drift.
             val actual = remote.getValue(builtin.id)
